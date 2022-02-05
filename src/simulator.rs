@@ -1,6 +1,5 @@
 use std::fs::File;
 
-use std::io::{Error, Stdin};
 use std::process::{Command, Stdio};
 
 use crate::error::SimulatorError;

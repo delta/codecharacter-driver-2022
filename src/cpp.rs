@@ -1,7 +1,6 @@
 use std::{
     fs::File,
-    io::{Error, Read},
-    process::{exit, Child, Command, Stdio},
+    process::{Child, Command, Stdio},
 };
 
 use crate::error::SimulatorError;

@@ -5,7 +5,7 @@ for i in range(sz):
     fp.write(sys.stdin.readline())
 #  sys.stdin.readlie()
 for i in range(sz):
-    sys.stdout.write("hi\n")
+    sys.stdout.write("Hi\n")
     #  print("hi")
 sys.stdout.flush()
 #  print("hello")

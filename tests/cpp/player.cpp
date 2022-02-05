@@ -20,9 +20,6 @@ void use_iostream() {
   ofstream f("cpp_player_out");
   cout.rdbuf()->pubsetbuf(0, 0);
   ios_base::sync_with_stdio(false);
-  // cin.tie(NULL);
-  // cout.tie(NULL);
-  // cin.rdbuf()->pubsetbuf(0, 0);
 
   for (int i = 0; i < sz; i++)
     cout << "Hi\n";
