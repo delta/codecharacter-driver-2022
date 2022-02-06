@@ -68,7 +68,10 @@ impl Drop for Fifo {
 
 #[cfg(test)]
 mod fifo_tests {
-    use std::io::{Read, Write};
+    use std::{
+        io::{Read, Write},
+        process::{Command, Stdio},
+    };
 
     use super::*;
 
@@ -89,6 +92,38 @@ mod fifo_tests {
         assert_eq!(string.clone(), "Hello World".to_owned());
 
         println!("{}", string);
+    }
+    #[test]
+    fn added_data_to_fifo_before_running_cmd_is_saved() {
+        let mut fifo = Fifo::new("/tmp/p1".to_owned()).unwrap();
+        let (fin, mut fout) = fifo.get_ends().unwrap();
+
+        let s1 = fout.write(b"Hello World").unwrap();
+        fout.flush().unwrap();
+        drop(fout); // will send eof to the read end
+
+        {
+            let python_code = "import sys\nsys.stdout.write(sys.stdin.readline())";
+            let mut temp_python_file = File::create("temp_py.py").unwrap();
+            temp_python_file.write(python_code.as_bytes()).unwrap();
+        }
+
+        match Command::new("python3")
+            .args(&["temp_py.py"])
+            .stdout(Stdio::piped())
+            .stdin(fin)
+            .spawn()
+            .unwrap()
+            .wait_with_output()
+        {
+            Ok(mut out) => {
+                assert_eq!("Hello World", String::from_utf8(out.stdout).unwrap().trim());
+            }
+            Err(_) => {
+                assert!(false);
+            }
+        }
+        remove_file("temp_py.py");
     }
 
     #[test]
