@@ -6,6 +6,9 @@ pub mod error;
 pub mod fifo;
 pub mod py;
 pub mod simulator;
+pub mod mq;
+pub mod request;
+
 
 pub fn handle_process(mut proc: Child) -> Result<(), SimulatorError> {
     match proc.wait_with_output() {
