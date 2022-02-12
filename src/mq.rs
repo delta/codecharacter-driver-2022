@@ -1,10 +1,8 @@
-use serde_json;
+use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions};
 
-use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
+use crate::request::GameRequest;
 
-use crate::request;
-
-fn consumer() -> Result<()> {
+fn consumer() -> amiquip::Result<()> {
     let mut connection = Connection::insecure_open("amqp://guest:guest@localhost:5672")?;
 
     let channel = connection.open_channel(None)?;
@@ -18,16 +16,16 @@ fn consumer() -> Result<()> {
         match message {
             ConsumerMessage::Delivery(delivery) => {
                 let body_str = String::from_utf8_lossy(&delivery.body);
-                let res = serde_json::from_str(&body_str);
-                if res.is_ok() {
-                    let mat : request::MatchRequest = res.unwrap();
-                    println!("({:>3}) Received msg : {}", i, mat.map);
+                let res: Result<GameRequest, serde_json::Error> = serde_json::from_str(&body_str);
+                match res {
+                    Ok(match_request) => {
+                        println!("i={}, request:  {:?}", i, match_request);
+                    }
+                    Err(e) => {
+                        eprintln!("{:?}", e);
+                    }
                 }
-                else{
-                    println!("Err:");
-                    println!("{:#?}",res.err())
-                }
-                
+
                 consumer.ack(delivery)?;
             }
             other => {
