@@ -1,12 +1,12 @@
-use cc_driver::{cpp, error, fifo::Fifo, py, simulator};
-const P1_IN: &str = "/tmp/p1_in";
-const P2_IN: &str = "/tmp/p2_in";
+use cc_driver::{cpp, error, fifo::Fifo, mq::Publisher, request::GameRequest, simulator};
 
-fn handler() {
+fn handler(game_request: GameRequest, publisher: &mut Publisher) {
     // This is not final, its just an outline of how it should happen
+    let p1_in = format!("/tmp/{}/p1_in", &game_request.game_id).to_owned();
+    let p2_in = format!("/tmp/{}/p2_in", &game_request.game_id).to_owned();
 
-    let pipe1 = Fifo::new(P1_IN.to_owned());
-    let pipe2 = Fifo::new(P2_IN.to_owned());
+    let pipe1 = Fifo::new(p1_in.to_owned());
+    let pipe2 = Fifo::new(p2_in.to_owned());
 
     match (pipe1, pipe2) {
         (Ok(mut p1), Ok(mut p2)) => {
@@ -59,5 +59,5 @@ fn handler() {
 }
 
 fn main() {
-    handler();
+    // handler();
 }

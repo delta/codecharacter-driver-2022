@@ -1,35 +1,39 @@
-use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result, Publish, Exchange, AmqpProperties};
-use std::{borrow::{Cow}};
-use crate::request::GameRequest;
+use crate::{error::SimulatorError, request::GameRequest, response::GameStatus};
+use amiquip::{
+    Channel, Connection, ConsumerMessage, ConsumerOptions, Exchange, Publish, QueueDeclareOptions,
+    Result,
+};
 
-fn consumer() -> amiquip::Result<()> {
-    let mut connection = Connection::insecure_open("amqp://guest:guest@localhost:5672")?;
+fn consumer(
+    url: String,
+    consumer_queue_name: String,
+    response_producer_queue_name: String,
+    handler_fn: fn(GameRequest, &mut Publisher) -> (),
+) -> amiquip::Result<()> {
+    let mut connection = Connection::insecure_open(&url)?;
 
     let channel = connection.open_channel(None)?;
 
-    let queue = channel.queue_declare("hello", QueueDeclareOptions::default())?;
-
-    let exchange = Exchange::direct(&channel);
+    let queue = channel.queue_declare(&consumer_queue_name, QueueDeclareOptions::default())?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
-    println!("Waiting for messages...");
 
-    for (i, message) in consumer.receiver().iter().enumerate() {
+    let mut response_publisher = Publisher::new(url, response_producer_queue_name).unwrap();
+
+    for message in consumer.receiver().iter() {
         match message {
             ConsumerMessage::Delivery(delivery) => {
                 let body_str = String::from_utf8_lossy(&delivery.body);
                 let res: Result<GameRequest, serde_json::Error> = serde_json::from_str(&body_str);
                 match res {
                     Ok(match_request) => {
-                        println!("i={}, request:  {:?}", i, match_request);
+                        consumer.ack(delivery)?;
+                        handler_fn(match_request, &mut response_publisher);
                     }
                     Err(e) => {
                         eprintln!("{:?}", e);
                     }
                 }
-                let reply_to = delivery.properties.reply_to().as_ref().unwrap().clone();
-                channel.basic_publish(exchange.name(), Publish::new("accepted".as_bytes(), reply_to))?;
-                consumer.ack(delivery)?;
             }
             other => {
                 println!("Consumer ended: {:?}", other);
@@ -41,32 +45,64 @@ fn consumer() -> amiquip::Result<()> {
     connection.close()
 }
 
-pub fn publish() -> Result<String> {
-    let mut connection = Connection::insecure_open("amqp://guest:guest@localhost:5672")?;
+pub struct Publisher {
+    connection: Option<Connection>,
+    channel: Channel,
+    queue_name: String,
+}
 
-    let channel = connection.open_channel(None)?;
+impl Publisher {
+    pub fn new(url: String, queue_name: String) -> Result<Self, SimulatorError> {
+        let mut connection = Connection::insecure_open(&url).map_err(|e| {
+            SimulatorError::UnidentifiedError(format!(
+                "Error in opening connection to publish queue [Connection::insecure_open]: {:?}",
+                e
+            ))
+        })?;
 
-    channel.queue_declare("hello", QueueDeclareOptions::default())?;
+        let channel = connection.open_channel(None).map_err(|e| {
+            SimulatorError::UnidentifiedError(format!(
+                "Error in opening channel [Connection::open_channel]: {:?}",
+                e
+            ))
+        })?;
 
-    let exchange = Exchange::direct(&channel);
+        channel
+            .queue_declare(&queue_name, QueueDeclareOptions::default())
+            .map_err(|e| {
+                SimulatorError::UnidentifiedError(format!(
+                    "Error in publishing to the queue [Publisher::new]: {:?}",
+                    e
+                ))
+            })?;
 
-    let props = AmqpProperties::default().with_reply_to(String::from("bye"));
+        Ok(Self {
+            connection: Some(connection),
+            channel,
+            queue_name,
+        })
+    }
+    pub fn publish(&mut self, response: GameStatus) -> Result<(), SimulatorError> {
+        let exchange = Exchange::direct(&self.channel);
+        let body = serde_json::to_string(&response)
+            .map_err(|e| SimulatorError::UnidentifiedError(format!("{:?}", e)))?;
+        exchange
+            .publish(Publish::new(&body.as_bytes(), &self.queue_name))
+            .map_err(|e| {
+                SimulatorError::UnidentifiedError(format!(
+                    "Error in publishing to the queue[Publisher::publish]{:?}",
+                    e
+                ))
+            })?;
+        Ok(())
+    }
+}
 
-    exchange.publish(Publish::with_properties(r#"{"game_id":"0fa0f12d-d472-42d5-94b4-011e0c916023","parameters":{"attackers":[{"id":1,"hp":10,"range":3,"attack_power":3,"speed":3,"price":1},{"id":2,"hp":10,"range":3,"attack_power":3,"speed":3,"price":1}],"defenders":[{"id":1,"hp":10,"range":4,"attack_power":5,"price":1},{"id":2,"hp":10,"range":6,"attack_power":5,"price":1}],"no_of_turns":500,"no_of_coins":1000},"source_code":"print(x)","language":"PYTHON","map":"[[1,0],[0,2]]"}"#.as_bytes(), "hello", props))?;
-    
-    let queue = channel.queue_declare("bye", QueueDeclareOptions::default())?;
-    let message = queue.consume(ConsumerOptions::default()).unwrap().receiver().recv().unwrap();
-    let body;
-    match message {
-        ConsumerMessage::Delivery(delivery) => {
-            body = String::from_utf8_lossy(&delivery.body).into_owned();
-            println!("({:>3}) Received", body);
-        }
-        other => {
-            body=Cow::Borrowed("error").into_owned();
-            println!("Consumer ended: {:?}", other);
+impl Drop for Publisher {
+    fn drop(&mut self) {
+        if self.connection.is_some() {
+            let conn = self.connection.take().unwrap();
+            let _ = conn.close();
         }
     }
-    connection.close();
-    return Ok(body);
 }
