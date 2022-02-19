@@ -4,7 +4,7 @@ use amiquip::{
     Result,
 };
 
-fn consumer(
+pub fn consumer(
     url: String,
     consumer_queue_name: String,
     response_producer_queue_name: String,
@@ -55,14 +55,14 @@ impl Publisher {
     pub fn new(url: String, queue_name: String) -> Result<Self, SimulatorError> {
         let mut connection = Connection::insecure_open(&url).map_err(|e| {
             SimulatorError::UnidentifiedError(format!(
-                "Error in opening connection to publish queue [Connection::insecure_open]: {:?}",
+                "Error in opening connection to publish queue [Connection::insecure_open]: {}",
                 e
             ))
         })?;
 
         let channel = connection.open_channel(None).map_err(|e| {
             SimulatorError::UnidentifiedError(format!(
-                "Error in opening channel [Connection::open_channel]: {:?}",
+                "Error in opening channel [Connection::open_channel]: {}",
                 e
             ))
         })?;
@@ -71,7 +71,7 @@ impl Publisher {
             .queue_declare(&queue_name, QueueDeclareOptions::default())
             .map_err(|e| {
                 SimulatorError::UnidentifiedError(format!(
-                    "Error in publishing to the queue [Publisher::new]: {:?}",
+                    "Error in publishing to the queue [Publisher::new]: {}",
                     e
                 ))
             })?;
@@ -85,12 +85,12 @@ impl Publisher {
     pub fn publish(&mut self, response: GameStatus) -> Result<(), SimulatorError> {
         let exchange = Exchange::direct(&self.channel);
         let body = serde_json::to_string(&response)
-            .map_err(|e| SimulatorError::UnidentifiedError(format!("{:?}", e)))?;
+            .map_err(|e| SimulatorError::UnidentifiedError(format!("{}", e)))?;
         exchange
             .publish(Publish::new(&body.as_bytes(), &self.queue_name))
             .map_err(|e| {
                 SimulatorError::UnidentifiedError(format!(
-                    "Error in publishing to the queue[Publisher::publish]{:?}",
+                    "Error in publishing to the queue[Publisher::publish]{}",
                     e
                 ))
             })?;
