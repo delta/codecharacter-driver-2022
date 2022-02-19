@@ -1,4 +1,6 @@
-use cc_driver::{cpp, error, fifo::Fifo, mq::Publisher, request::GameRequest, simulator};
+use cc_driver::{
+    cpp, error, fifo::Fifo, mq::Publisher, request::GameRequest, response::GameStatus, simulator,
+};
 
 fn handler(game_request: GameRequest, publisher: &mut Publisher) {
     // This is not final, its just an outline of how it should happen
@@ -23,7 +25,10 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
                     player_pid = pid;
                 }
                 Err(err) => {
-                    error::handle_err(err);
+                    // if there's error in publishing, might as well crash
+                    publisher
+                        .publish(error::handle_err(game_request, err))
+                        .unwrap();
                     return;
                 }
             };
@@ -36,24 +41,44 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
                     sim_pid = pid;
                 }
                 Err(err) => {
-                    error::handle_err(err);
+                    // if there's error in publishing, might as well crash
+                    publisher
+                        .publish(error::handle_err(game_request, err))
+                        .unwrap();
                     return;
                 }
             };
 
-            if let Err(err) = cc_driver::handle_process(player_pid) {
-                error::handle_err(err);
+            let player_process_out = cc_driver::handle_process(player_pid);
+            if let Err(err) = player_process_out {
+                // error in publish means we crash
+                publisher
+                    .publish(error::handle_err(game_request, err))
+                    .unwrap();
                 return;
             }
-            if let Err(err) = cc_driver::handle_process(sim_pid) {
-                error::handle_err(err);
+            let player_process_out = player_process_out.unwrap();
+
+            let sim_process_out = cc_driver::handle_process(sim_pid);
+            if let Err(err) = sim_process_out {
+                // error in publish means we crash
+                publisher
+                    .publish(error::handle_err(game_request, err))
+                    .unwrap();
                 return;
             }
-            println!("Exited both process successfully");
+            let sim_process_out = sim_process_out.unwrap();
+
+            let response =
+                cc_driver::create_final_response(game_request, player_process_out, sim_process_out);
+
+            // crash on failure
+            publisher.publish(response).unwrap();
         }
 
         (Err(e), _) | (_, Err(e)) => {
-            cc_driver::error::handle_err(e);
+            error::handle_err(game_request, e);
+            return;
         }
     }
 }
