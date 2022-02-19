@@ -31,7 +31,6 @@ pub struct GameParameters {
 
 #[derive(Deserialize, Debug, PartialEq)]
 pub enum Language {
-    C,
     CPP,
     JAVA,
     PYTHON,

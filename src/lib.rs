@@ -4,11 +4,11 @@ use error::SimulatorError;
 pub mod cpp;
 pub mod error;
 pub mod fifo;
-pub mod py;
-pub mod simulator;
 pub mod mq;
+pub mod py;
 pub mod request;
-
+pub mod response;
+pub mod simulator;
 
 pub fn handle_process(mut proc: Child) -> Result<(), SimulatorError> {
     match proc.wait_with_output() {
