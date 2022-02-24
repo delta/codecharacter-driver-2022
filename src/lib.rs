@@ -5,6 +5,7 @@ use response::{GameResult, GameStatusEnum};
 pub mod cpp;
 pub mod error;
 pub mod fifo;
+pub mod game_dir;
 pub mod mq;
 pub mod py;
 pub mod request;

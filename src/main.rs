@@ -1,11 +1,28 @@
 use cc_driver::{
-    cpp, error, fifo::Fifo, mq::Publisher, request::GameRequest, response::GameStatus, simulator,
+    cpp, error, fifo::Fifo, game_dir::GameDir, mq::Publisher, request::GameRequest, simulator,
 };
 
 fn handler(game_request: GameRequest, publisher: &mut Publisher) {
     // This is not final, its just an outline of how it should happen
-    let p1_in = format!("/tmp/{}/p1_in", &game_request.game_id).to_owned();
-    let p2_in = format!("/tmp/{}/p2_in", &game_request.game_id).to_owned();
+
+    let game_dir_handle = GameDir::new(&game_request.game_id);
+
+    if game_dir_handle.is_none() {
+        publisher
+            .publish(error::handle_err(
+                game_request,
+                cc_driver::error::SimulatorError::UnidentifiedError(
+                    "Failed to create game directory".to_owned(),
+                ),
+            ))
+            .unwrap();
+        return;
+    }
+
+    let game_dir_handle = game_dir_handle.unwrap();
+
+    let p1_in = format!("{}/p1_in", game_dir_handle.get_path()).to_owned();
+    let p2_in = format!("{}/p2_in", game_dir_handle.get_path()).to_owned();
 
     let pipe1 = Fifo::new(p1_in.to_owned());
     let pipe2 = Fifo::new(p2_in.to_owned());
