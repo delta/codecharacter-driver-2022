@@ -98,7 +98,7 @@ int main() {
 
   output(state, game);
 
-  for (size_t i = 0; (i + 1) < Constants::NO_OF_TURNS; i++) {
+  for (size_t i = 0; i < Constants::NO_OF_TURNS; i++) {
     state = next_state(state.get_turn_no());
     game = run(state);
     output(state, game);

@@ -20,6 +20,6 @@ clean_objects:
 	rm player_code.o $(EXE).o main.o
 
 clean:
-	rm $(EXE)
+	rm $(EXE) $(EXE).o
 
 .PHONY: all clean
