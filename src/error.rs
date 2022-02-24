@@ -7,7 +7,7 @@ pub enum SimulatorError {
     FifoCreationError(String),
 }
 
-pub fn handle_err(game_request: request::GameRequest, err: SimulatorError) -> response::GameStatus {
+pub fn handle_err(game_request: &request::GameRequest, err: SimulatorError) -> response::GameStatus {
     eprintln!("{:?}", err);
     let (err_type, error) = match err {
         SimulatorError::RuntimeError(e) => ("Runtime Error!!".to_owned(), e),

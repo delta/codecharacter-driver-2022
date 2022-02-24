@@ -1,4 +1,4 @@
-EXE=xyz
+EXE=run
 CXX=g++
 FLAGS=-std=c++20 -O2
 

@@ -98,7 +98,7 @@ mod fifo_tests {
         let mut fifo = Fifo::new("/tmp/p1".to_owned()).unwrap();
         let (fin, mut fout) = fifo.get_ends().unwrap();
 
-        let s1 = fout.write(b"Hello World").unwrap();
+        let _ = fout.write(b"Hello World").unwrap();
         fout.flush().unwrap();
         drop(fout); // will send eof to the read end
 
@@ -116,19 +116,19 @@ mod fifo_tests {
             .unwrap()
             .wait_with_output()
         {
-            Ok(mut out) => {
+            Ok(out) => {
                 assert_eq!("Hello World", String::from_utf8(out.stdout).unwrap().trim());
             }
             Err(_) => {
                 assert!(false);
             }
         }
-        remove_file("temp_py.py");
+        let _ = remove_file("temp_py.py");
     }
 
     #[test]
     fn get_ends() {
-        let mut fifo = Fifo::new("/tmp/p2".to_owned());
+        let fifo = Fifo::new("/tmp/p2".to_owned());
         assert!(fifo.is_ok());
         let mut fifo = fifo.unwrap();
         assert!(fifo.get_ends().is_some());
