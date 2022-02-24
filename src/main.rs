@@ -6,6 +6,15 @@ use cc_driver::{
     request::GameRequest,
     simulator,
 };
+use log::{error, LevelFilter, info};
+use log4rs::{
+    append::{
+        console::{ConsoleAppender, Target},
+        file::FileAppender,
+    },
+    config::{Appender, Config, Root},
+    filter::threshold::ThresholdFilter,
+};
 use std::{
     fs::File,
     io::{prelude::*, BufWriter},
@@ -122,8 +131,7 @@ fn make_copy(
 }
 
 fn handler(game_request: GameRequest, publisher: &mut Publisher) {
-    // This is not final, its just an outline of how it should happen
-
+    info!("Starting execution for {} with language {:?}", game_request.game_id, game_request.language);
     let game_dir_handle = GameDir::new(&game_request.game_id);
 
     if game_dir_handle.is_none() {
@@ -215,7 +223,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             let player_process_out = cc_driver::handle_process(player_pid);
             if let Err(err) = player_process_out {
                 // error in publish means we crash
-                eprint!("Error from player: {:?}", err);
+                error!("Error from player.");
                 publisher
                     .publish(error::handle_err(&game_request, err))
                     .unwrap();
@@ -225,8 +233,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
 
             let sim_process_out = cc_driver::handle_process(sim_pid);
             if let Err(err) = sim_process_out {
-                // error in publish means we crash
-                eprint!("Error from simulator: {:?}", err);
+                error!("Error from simulator.");
                 publisher
                     .publish(error::handle_err(&game_request, err))
                     .unwrap();
@@ -234,6 +241,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             }
             let sim_process_out = sim_process_out.unwrap();
 
+            info!("Successfully executed for game {}", game_request.game_id);
             let response =
                 cc_driver::create_final_response(game_request, player_process_out, sim_process_out);
 
@@ -249,6 +257,32 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
 }
 
 fn main() {
+    let level = log::LevelFilter::Info;
+    let file_path = "driver.log";
+
+    let stderr = ConsoleAppender::builder().target(Target::Stderr).build();
+
+    let logfile = FileAppender::builder()
+        .build(file_path)
+        .unwrap();
+    
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .appender(
+            Appender::builder()
+                .filter(Box::new(ThresholdFilter::new(level)))
+                .build("stderr", Box::new(stderr)),
+        )
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .appender("stderr")
+                .build(LevelFilter::Info),
+        )
+        .unwrap();
+
+    let _handle = log4rs::init_config(config).unwrap();
+
     let res = consumer(
         "amqp://guest:guest@localhost".to_owned(),
         "gameRequestQueue".to_owned(),

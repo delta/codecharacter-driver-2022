@@ -1,4 +1,6 @@
 use crate::{request, response};
+use log::error;
+
 #[derive(Debug)]
 pub enum SimulatorError {
     CompilationError(String),
@@ -8,13 +10,13 @@ pub enum SimulatorError {
 }
 
 pub fn handle_err(game_request: &request::GameRequest, err: SimulatorError) -> response::GameStatus {
-    eprintln!("{:?}", err);
+    error!("Error in execution: {:?}", err);
     let (err_type, error) = match err {
-        SimulatorError::RuntimeError(e) => ("Runtime Error!!".to_owned(), e),
-        SimulatorError::CompilationError(e) => ("Compilation Error!!".to_owned(), e),
-        SimulatorError::FifoCreationError(e) => ("Process Communication Error!!".to_owned(), e),
+        SimulatorError::RuntimeError(e) => ("Runtime Error!".to_owned(), e),
+        SimulatorError::CompilationError(e) => ("Compilation Error!".to_owned(), e),
+        SimulatorError::FifoCreationError(e) => ("Process Communication Error!".to_owned(), e),
         SimulatorError::UnidentifiedError(e) => {
-            ("Unidentified Error. Contact the POCs!!!!".to_owned(), e)
+            ("Unidentified Error. Contact the POCs!".to_owned(), e)
         }
     };
     response::GameStatus {
