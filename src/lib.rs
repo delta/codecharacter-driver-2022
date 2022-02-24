@@ -12,7 +12,7 @@ pub mod request;
 pub mod response;
 pub mod simulator;
 
-pub fn handle_process(mut proc: Child) -> Result<String, SimulatorError> {
+pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
         Ok(out) => {
             let logs = String::from_utf8(out.stderr);

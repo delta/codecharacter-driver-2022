@@ -13,7 +13,8 @@ impl Simulator {
         Simulator { main_command, args }
     }
     pub fn run(&self, stdin: File, stdout: File) -> Result<std::process::Child, SimulatorError> {
-        Command::new(self.main_command)
+        Command::new("timeout".to_owned())
+            .args(["3", self.main_command])
             .args(&self.args)
             .stdin(stdin)
             .stdout(stdout)

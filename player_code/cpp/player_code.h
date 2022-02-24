@@ -24,7 +24,7 @@ struct Attributes {
              unsigned price);
 };
 
-namespace Constants {
+struct Constants {
 static inline size_t MAP_NO_OF_ROWS;
 static inline size_t MAP_NO_OF_COLS;
 static inline size_t NO_OF_DEFENDER_TYPES;

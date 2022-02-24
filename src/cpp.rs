@@ -6,25 +6,18 @@ use std::{
 use crate::error::SimulatorError;
 
 pub struct Runner {
-    file_name: String,
-    out_name: String,
+    current_dir: String
 }
 impl Runner {
-    pub fn new(file_name: String, out_name: String) -> Self {
+    pub fn new(current_dir: String) -> Self {
         Runner {
-            file_name,
-            out_name,
+            current_dir
         }
     }
     pub fn run(&self, stdin: File, stdout: File) -> Result<Child, SimulatorError> {
-        let compile = Command::new("clang++")
-            .args([
-                "-fsanitize=address",
-                "-O2",
-                "-o",
-                &self.out_name,
-                &self.file_name,
-            ])
+        let compile = Command::new("make")
+            .args(["all"])
+            .current_dir(&self.current_dir.to_owned())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
@@ -48,7 +41,9 @@ impl Runner {
                     .to_owned(),
             ));
         }
-        Command::new("./".to_owned() + &self.out_name.clone())
+        Command::new("timeout".to_owned())
+            .args(["3", "./run"])
+            .current_dir(&self.current_dir.to_owned())
             .stdin(stdin)
             .stdout(stdout)
             .stderr(Stdio::piped())

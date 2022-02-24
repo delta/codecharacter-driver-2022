@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 #[derive(Serialize, Debug, PartialEq)]
+#[allow(non_camel_case_types)]
 pub enum GameStatusEnum {
     IDLE,
     EXECUTING,

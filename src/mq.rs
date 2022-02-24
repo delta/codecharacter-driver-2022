@@ -14,7 +14,7 @@ pub fn consumer(
 
     let channel = connection.open_channel(None)?;
 
-    let queue = channel.queue_declare(&consumer_queue_name, QueueDeclareOptions::default())?;
+    let queue = channel.queue_declare(&consumer_queue_name, QueueDeclareOptions {durable: true, ..Default::default()})?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
 
@@ -68,7 +68,7 @@ impl Publisher {
         })?;
 
         channel
-            .queue_declare(&queue_name, QueueDeclareOptions::default())
+            .queue_declare(&queue_name, QueueDeclareOptions {durable: true, ..Default::default()})
             .map_err(|e| {
                 SimulatorError::UnidentifiedError(format!(
                     "Error in publishing to the queue [Publisher::new]: {}",
