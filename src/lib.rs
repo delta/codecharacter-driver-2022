@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Child};
+use std::{collections::HashMap, io::Read, process::Child};
 
 use error::SimulatorError;
 use response::{GameResult, GameStatusEnum};
@@ -14,19 +14,24 @@ pub mod response;
 pub mod simulator;
 pub mod utils;
 
+// maximum size for log will be around 2 MBs, everything after that is ignored
+const MAXLOGSIZE: usize = 2000000;
+
 pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
         Ok(out) => {
-            let logs = String::from_utf8(out.stderr);
+            let mut truncated_logs = out.stderr.take(MAXLOGSIZE as u64);
+            let mut logs = String::new();
+            let logs_extraction_result = truncated_logs.read_to_string(&mut logs);
             if out.status.success() {
-                match logs {
+                match logs_extraction_result {
                     Err(e) => Err(SimulatorError::UnidentifiedError(
                         format!("Error during log extraction: {}", e).to_owned(),
                     )),
-                    Ok(out) => Ok(out),
+                    Ok(_) => Ok(logs),
                 }
             } else {
-                match logs {
+                match logs_extraction_result {
                     Err(e) => Err(SimulatorError::UnidentifiedError(
                         format!(
                             "Runtime Error followed by Error during log extraction: {}",
@@ -34,9 +39,9 @@ pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
                         )
                         .to_owned(),
                     )),
-                    Ok(out) => Err(SimulatorError::RuntimeError(format!(
+                    Ok(_) => Err(SimulatorError::RuntimeError(format!(
                         "Program exited with non zero exit code: {} ",
-                        out
+                        logs
                     ))),
                 }
             }
