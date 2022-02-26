@@ -1,12 +1,17 @@
+use std::sync::Arc;
+
 use cc_driver::{
     cpp, error,
     fifo::Fifo,
     game_dir::GameDir,
+    java,
     mq::{consumer, Publisher},
+    py,
     request::{GameRequest, Language},
-    simulator, py, java,
+    response::GameStatus,
+    simulator,
 };
-use log::{error, LevelFilter, info};
+use log::{error, info, LevelFilter};
 use log4rs::{
     append::{
         console::{ConsoleAppender, Target},
@@ -15,135 +20,21 @@ use log4rs::{
     config::{Appender, Config, Root},
     filter::threshold::ThresholdFilter,
 };
-use std::{
-    fs::File,
-    io::{prelude::*, BufWriter},
-};
 
-// https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
-fn copy_dir_all(
-    src: impl AsRef<std::path::Path>,
-    dst: impl AsRef<std::path::Path>,
-) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
-
-fn send_initial_input(fifos: Vec<&File>, game_request: &GameRequest) {
-    let game_parameters = &game_request.parameters;
-    for fifo in fifos {
-        let mut writer = BufWriter::new(fifo);
-        writer
-            .write_all(
-                format!(
-                    "{} {}\n",
-                    game_parameters.no_of_turns, game_parameters.no_of_coins
-                )
-                .as_bytes(),
-            )
-            .unwrap();
-        writer
-            .write_all(format!("{}\n", game_parameters.attackers.len()).as_bytes())
-            .unwrap();
-        for attacker in &game_parameters.attackers {
-            writer
-                .write_all(
-                    format!(
-                        "{} {} {} {} {}\n",
-                        attacker.hp,
-                        attacker.range,
-                        attacker.attack_power,
-                        attacker.speed,
-                        attacker.price
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
-        }
-        writer
-            .write_all(format!("{}\n", game_parameters.defenders.len()).as_bytes())
-            .unwrap();
-        for defender in &game_parameters.defenders {
-            writer
-                .write_all(
-                    format!(
-                        "{} {} {} {} {}\n",
-                        defender.hp, defender.range, defender.attack_power, 0, defender.price
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
-        }
-        writer.write_all("64 64\n".as_bytes()).unwrap();
-        for row in game_request.map.iter() {
-            for cell in row.iter() {
-                writer.write_all(format!("{} ", cell).as_bytes()).unwrap();
-            }
-            writer.write_all("\n".as_bytes()).unwrap();
-        }
-    }
-}
-
-fn make_copy(
-    src_dir: &str,
-    dest_dir: &str,
-    player_code_file: &str,
-    game_request: &GameRequest,
-    publisher: &mut Publisher,
-) -> bool {
-    if let Err(e) = copy_dir_all(src_dir, dest_dir) {
-        publisher
-            .publish(error::handle_err(
-                game_request,
-                cc_driver::error::SimulatorError::UnidentifiedError(format!(
-                    "Failed to copy player code boilerplate: {} {} {}",
-                    e, src_dir, dest_dir
-                )),
-            ))
-            .unwrap();
-        return false;
-    }
-
-    if let Err(e) = std::fs::File::create(player_code_file).and_then(|mut file| {
-        file.write_all(game_request.source_code.as_bytes())
-            .and_then(|_| file.sync_all())
-    }) {
-        publisher
-            .publish(error::handle_err(
-                game_request,
-                cc_driver::error::SimulatorError::UnidentifiedError(format!(
-                    "Failed to copy player code: {}",
-                    e
-                )),
-            ))
-            .unwrap();
-        return false;
-    }
-    return true;
-}
-
-fn handler(game_request: GameRequest, publisher: &mut Publisher) {
-    info!("Starting execution for {} with language {:?}", game_request.game_id, game_request.language);
+fn handler(game_request: GameRequest) -> GameStatus {
+    info!(
+        "Starting execution for {} with language {:?}",
+        game_request.game_id, game_request.language
+    );
     let game_dir_handle = GameDir::new(&game_request.game_id);
 
     if game_dir_handle.is_none() {
-        publisher
-            .publish(error::handle_err(
-                &game_request,
-                cc_driver::error::SimulatorError::UnidentifiedError(
-                    "Failed to create game directory".to_owned(),
-                ),
-            ))
-            .unwrap();
-        return;
+        return error::handle_err(
+            &game_request,
+            cc_driver::error::SimulatorError::UnidentifiedError(
+                "Failed to create game directory".to_owned(),
+            ),
+        );
     }
 
     let game_dir_handle = game_dir_handle.unwrap();
@@ -163,14 +54,16 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
         ),
     };
 
-    if !make_copy(
+    match cc_driver::utils::make_copy(
         to_copy_dir,
         game_dir_handle.get_path(),
         &player_code_file,
         &game_request,
-        publisher,
     ) {
-        return;
+        Some(resp) => {
+            return resp;
+        }
+        _ => {}
     }
 
     let p1_in = format!("{}/p1_in", game_dir_handle.get_path()).to_owned();
@@ -184,12 +77,15 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             let (p1_stdin, p2_stdout) = p1.get_ends().unwrap();
             let (p2_stdin, p1_stdout) = p2.get_ends().unwrap();
 
-            send_initial_input(vec![&p1_stdout, &p2_stdout], &game_request);
+            cc_driver::utils::send_initial_input(vec![&p1_stdout, &p2_stdout], &game_request);
 
             let player_process = match game_request.language {
-                Language::CPP => cpp::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
-                Language::PYTHON => py::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
-                Language::JAVA => java::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
+                Language::CPP => cpp::Runner::new(format!("{}", game_dir_handle.get_path()))
+                    .run(p1_stdin, p1_stdout),
+                Language::PYTHON => py::Runner::new(format!("{}", game_dir_handle.get_path()))
+                    .run(p1_stdin, p1_stdout),
+                Language::JAVA => java::Runner::new(format!("{}", game_dir_handle.get_path()))
+                    .run(p1_stdin, p1_stdout),
             };
             let player_pid;
 
@@ -198,11 +94,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
                     player_pid = pid;
                 }
                 Err(err) => {
-                    // if there's error in publishing, might as well crash
-                    publisher
-                        .publish(error::handle_err(&game_request, err))
-                        .unwrap();
-                    return;
+                    return error::handle_err(&game_request, err);
                 }
             };
 
@@ -214,11 +106,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
                     sim_pid = pid;
                 }
                 Err(err) => {
-                    // if there's error in publishing, might as well crash
-                    publisher
-                        .publish(error::handle_err(&game_request, err))
-                        .unwrap();
-                    return;
+                    return error::handle_err(&game_request, err);
                 }
             };
 
@@ -226,20 +114,14 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             if let Err(err) = player_process_out {
                 // error in publish means we crash
                 error!("Error from player.");
-                publisher
-                    .publish(error::handle_err(&game_request, err))
-                    .unwrap();
-                return;
+                return error::handle_err(&game_request, err);
             }
             let player_process_out = player_process_out.unwrap();
 
             let sim_process_out = cc_driver::handle_process(sim_pid);
             if let Err(err) = sim_process_out {
                 error!("Error from simulator.");
-                publisher
-                    .publish(error::handle_err(&game_request, err))
-                    .unwrap();
-                return;
+                return error::handle_err(&game_request, err);
             }
             let sim_process_out = sim_process_out.unwrap();
 
@@ -247,13 +129,25 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             let response =
                 cc_driver::create_final_response(game_request, player_process_out, sim_process_out);
 
-            // crash on failure
-            publisher.publish(response).unwrap();
+            return response;
         }
 
         (Err(e), _) | (_, Err(e)) => {
-            error::handle_err(&game_request, e);
-            return;
+            return error::handle_err(&game_request, e);
+        }
+    }
+}
+
+fn worker_fn(msg_receiver: crossbeam_channel::Receiver<GameRequest>, publisher: Arc<Publisher>) {
+    loop {
+        match msg_receiver.recv() {
+            Ok(x) => {
+                let response = handler(x);
+                publisher.publish(response).unwrap();
+            }
+            Err(_) => {
+                break;
+            }
         }
     }
 }
@@ -264,10 +158,8 @@ fn main() {
 
     let stderr = ConsoleAppender::builder().target(Target::Stderr).build();
 
-    let logfile = FileAppender::builder()
-        .build(file_path)
-        .unwrap();
-    
+    let logfile = FileAppender::builder().build(file_path).unwrap();
+
     let config = Config::builder()
         .appender(Appender::builder().build("logfile", Box::new(logfile)))
         .appender(
@@ -289,7 +181,7 @@ fn main() {
         "amqp://guest:guest@localhost".to_owned(),
         "gameRequestQueue".to_owned(),
         "gameStatusUpdateQueue".to_owned(),
-        handler,
+        worker_fn,
     );
     match res {
         Ok(_) => {}

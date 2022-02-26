@@ -3,7 +3,7 @@ use std::{
     io::{BufWriter, Write},
 };
 
-use crate::{error, mq::Publisher, request::GameRequest};
+use crate::{error, request::GameRequest, response};
 
 // https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
 pub fn copy_dir_all(
@@ -82,35 +82,25 @@ pub fn make_copy(
     dest_dir: &str,
     player_code_file: &str,
     game_request: &GameRequest,
-    publisher: &mut Publisher,
-) -> bool {
+) -> Option<response::GameStatus> {
     if let Err(e) = copy_dir_all(src_dir, dest_dir) {
-        publisher
-            .publish(error::handle_err(
-                game_request,
-                error::SimulatorError::UnidentifiedError(format!(
-                    "Failed to copy player code boilerplate: {}",
-                    e
-                )),
-            ))
-            .unwrap();
-        return false;
+        return Some(error::handle_err(
+            game_request,
+            error::SimulatorError::UnidentifiedError(format!(
+                "Failed to copy player code boilerplate: {}",
+                e
+            )),
+        ));
     }
 
     if let Err(e) = std::fs::File::create(player_code_file).and_then(|mut file| {
         file.write_all(game_request.source_code.as_bytes())
             .and_then(|_| file.sync_all())
     }) {
-        publisher
-            .publish(error::handle_err(
-                game_request,
-                error::SimulatorError::UnidentifiedError(format!(
-                    "Failed to copy player code: {}",
-                    e
-                )),
-            ))
-            .unwrap();
-        return false;
+        return Some(error::handle_err(
+            game_request,
+            error::SimulatorError::UnidentifiedError(format!("Failed to copy player code: {}", e)),
+        ));
     }
-    return true;
+    None
 }
