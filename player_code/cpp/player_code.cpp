@@ -1,5 +1,14 @@
 #include "player_code.h"
 
+#include <algorithm>
+#include <cmath>
+#include <compare>
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <unordered_map>
+#include <vector>
+
 Attributes::Attributes(unsigned hp, unsigned range, unsigned attack_power,
                        unsigned speed, unsigned price)
     : hp(hp), range(range), attack_power(attack_power), speed(speed),
@@ -17,13 +26,13 @@ double Position::distance_to(Position other) const {
 }
 
 bool is_valid_spawn_position(int x, int y) {
-  if (x < 0 || y < 0 || x >= static_cast<int>(Constants::MAP_NO_OF_ROWS) ||
-      y >= static_cast<int>(Constants::MAP_NO_OF_COLS)) {
+  if (x < 0 || y < 0 || x >= static_cast<int>(Constants::MAP_NO_OF_COLS) ||
+      y >= static_cast<int>(Constants::MAP_NO_OF_ROWS)) {
     return false;
   }
   return x == 0 || y == 0 ||
-         (x == (static_cast<int>(Constants::MAP_NO_OF_ROWS) - 1)) ||
-         (y == (static_cast<int>(Constants::MAP_NO_OF_COLS) - 1));
+         (x == (static_cast<int>(Constants::MAP_NO_OF_COLS) - 1)) ||
+         (y == (static_cast<int>(Constants::MAP_NO_OF_ROWS) - 1));
 }
 
 bool is_valid_spawn_position(Position pos) {
@@ -33,25 +42,25 @@ bool is_valid_spawn_position(Position pos) {
 std::vector<Position> get_all_valid_spawn_positions() {
   std::vector<Position> all_valid_positions;
   // x is 0
-  for (int j = 0; j < static_cast<int>(Constants::MAP_NO_OF_COLS); j++) {
+  for (int j = 0; j < static_cast<int>(Constants::MAP_NO_OF_ROWS); j++) {
     all_valid_positions.push_back({0, j});
   }
 
   // y is 0
-  for (int i = 1; i < static_cast<int>(Constants::MAP_NO_OF_ROWS); i++) {
+  for (int i = 1; i < static_cast<int>(Constants::MAP_NO_OF_COLS); i++) {
     all_valid_positions.push_back({i, 0});
   }
 
   // x is MAP_NO_OF_ROWS-1
-  for (int j = 1; j < static_cast<int>(Constants::MAP_NO_OF_COLS); j++) {
+  for (int j = 1; j < static_cast<int>(Constants::MAP_NO_OF_ROWS); j++) {
     all_valid_positions.push_back(
-        {static_cast<int>(Constants::MAP_NO_OF_ROWS) - 1, j});
+        {static_cast<int>(Constants::MAP_NO_OF_COLS) - 1, j});
   }
 
   // y is MAP_NO_OF_COLS - 1
-  for (int i = 1; (i + 1) < static_cast<int>(Constants::MAP_NO_OF_ROWS); i++) {
+  for (int i = 1; (i + 1) < static_cast<int>(Constants::MAP_NO_OF_COLS); i++) {
     all_valid_positions.push_back(
-        {i, static_cast<int>(Constants::MAP_NO_OF_COLS) - 1});
+        {i, static_cast<int>(Constants::MAP_NO_OF_ROWS) - 1});
   }
   return all_valid_positions;
 }
@@ -87,9 +96,10 @@ Game::Game() {}
 
 void Game::spawn_attacker(size_t id, Position pos) {
   this->_spawn_postions.push_back({id, pos});
+  this->_already_spawned_positions.insert(pos);
 }
 bool Game::already_spawned_at_position(Position pos) {
-  return this->_already_spawned_postitions.contains(pos);
+  return this->_already_spawned_positions.contains(pos);
 }
 void Game::set_target(size_t attacker_id, size_t defender_id) {
   this->_player_set_targets.insert({attacker_id, defender_id});
@@ -108,7 +118,7 @@ Game::get_spawn_positions() const {
   return this->_spawn_postions;
 }
 const std::set<Position> &Game::get_already_spawned_positions() const {
-  return this->_already_spawned_postitions;
+  return this->_already_spawned_positions;
 }
 
 Map::Map(std::vector<std::vector<int>> map_as_grid)

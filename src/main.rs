@@ -3,8 +3,8 @@ use cc_driver::{
     fifo::Fifo,
     game_dir::GameDir,
     mq::{consumer, Publisher},
-    request::GameRequest,
-    simulator,
+    request::{GameRequest, Language},
+    simulator, py, java,
 };
 use log::{error, LevelFilter, info};
 use log4rs::{
@@ -104,8 +104,8 @@ fn make_copy(
             .publish(error::handle_err(
                 game_request,
                 cc_driver::error::SimulatorError::UnidentifiedError(format!(
-                    "Failed to copy player code boilerplate: {}",
-                    e
+                    "Failed to copy player code boilerplate: {} {} {}",
+                    e, src_dir, dest_dir
                 )),
             ))
             .unwrap();
@@ -154,7 +154,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
             format!("{}/run.cpp", game_dir_handle.get_path()),
         ),
         cc_driver::request::Language::PYTHON => (
-            "player_code/py",
+            "player_code/python",
             format!("{}/run.py", game_dir_handle.get_path()),
         ),
         cc_driver::request::Language::JAVA => (
@@ -186,9 +186,11 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
 
             send_initial_input(vec![&p1_stdout, &p2_stdout], &game_request);
 
-            let player_process = cpp::Runner::new(format!("{}", game_dir_handle.get_path()))
-                .run(p1_stdin, p1_stdout);
-
+            let player_process = match game_request.language {
+                Language::CPP => cpp::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
+                Language::PYTHON => py::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
+                Language::JAVA => java::Runner::new(format!("{}", game_dir_handle.get_path())) .run(p1_stdin, p1_stdout),
+            };
             let player_pid;
 
             match player_process {

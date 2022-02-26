@@ -6,16 +6,17 @@ use std::{
 use crate::error::SimulatorError;
 
 pub struct Runner {
-    file_name: String,
+    current_dir: String,
 }
 
 impl Runner {
-    pub fn new(file_name: String) -> Self {
-        Runner { file_name }
+    pub fn new(current_dir: String) -> Self {
+        Runner { current_dir }
     }
     pub fn run(&self, stdin: File, stdout: File) -> Result<std::process::Child, SimulatorError> {
         Command::new("python3")
-            .args([&self.file_name])
+            .args(["-u", "main.py"])
+            .current_dir(&self.current_dir)
             .stdin(stdin)
             .stdout(stdout)
             .stderr(Stdio::piped())

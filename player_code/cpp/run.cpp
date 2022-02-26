@@ -2,8 +2,7 @@
 
 Game run(const State &state) {
   Game game{};
-  game.logr() << '\n';
-  game.logr() << '\n';
-
+  logger << '\n';
+  logger << '\n';
   return game;
 }
