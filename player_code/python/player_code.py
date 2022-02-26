@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import sys
-from typing_extensions import Self
 
 
 @dataclass(eq=True, frozen=True, order=True)
@@ -92,7 +91,7 @@ class Constants:
     MAP_NO_OF_COLS: int
 
     @classmethod
-    def initialize(cls: Self):
+    def initialize(cls):
         cls.NO_OF_TURNS, cls.MAX_NO_OF_COINS = map(int, input().split())
         cls.NO_OF_ATTACKER_TYPES = int(input())
         cls.ATTACKER_TYPE_ATTRIBUTES = {}
@@ -115,7 +114,7 @@ class Map:
     map: list[list[int]]
 
     @classmethod
-    def initialize(cls: Self):
+    def initialize(cls):
         Constants.MAP_NO_OF_ROWS, Constants.MAP_NO_OF_COLS = map(int, sys.stdin.readline().split())
         cls.map = []
         for _ in range(Constants.MAP_NO_OF_ROWS):

@@ -14,8 +14,20 @@ impl Runner {
         Runner { current_dir }
     }
     pub fn run(&self, stdin: File, stdout: File) -> Result<std::process::Child, SimulatorError> {
-        Command::new("python3")
-            .args(["-u", "main.py"])
+        Command::new("timeout".to_owned())
+            .args([
+                "10",
+                "docker",
+                "run",
+                "--memory=100m",
+                "--memory-swap=100m",
+                "--cpus=1",
+                "--rm",
+                "-i",
+                "-v",
+                format!("{}/run.py:/player_code/run.py", self.current_dir.as_str()).as_str(),
+                "ghcr.io/delta/codecharacter-python-runner:latest",
+            ])
             .current_dir(&self.current_dir)
             .stdin(stdin)
             .stdout(stdout)
