@@ -1,4 +1,4 @@
-from .player_code import (
+from player_code import (
     Position,
     Attacker,
     Defender,
