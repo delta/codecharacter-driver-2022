@@ -1,17 +1,10 @@
 #pragma once
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
 #include <compare>
 #include <iostream>
-#include <queue>
 #include <set>
 #include <sstream>
-#include <string>
-#include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 struct Attributes {
@@ -35,7 +28,7 @@ static inline size_t MAX_NO_OF_COINS;
 static inline std::unordered_map<size_t, Attributes> ATTACKER_TYPE_ATTRIBUTES;
 static inline std::unordered_map<size_t, Attributes> DEFENDER_TYPE_ATTRIBUTES;
 
-}; // namespace Constants
+};
 
 class Position {
 private:
@@ -103,7 +96,7 @@ private:
 class Game {
   std::unordered_map<size_t, size_t> _player_set_targets;
   std::vector<std::pair<size_t, Position>> _spawn_postions;
-  std::set<Position> _already_spawned_postitions;
+  std::set<Position> _already_spawned_positions;
   std::ostringstream _logr;
 
 public:
@@ -135,3 +128,5 @@ private:
 };
 
 Game run(const State &state);
+
+#define logger game.logr()
