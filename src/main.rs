@@ -206,8 +206,7 @@ fn handler(game_request: GameRequest, publisher: &mut Publisher) {
                 }
             };
 
-            let sim_process = simulator::Simulator::new("python3", vec!["tests/simulator.py"])
-                .run(p2_stdin, p2_stdout);
+            let sim_process = simulator::Simulator{}.run(p2_stdin, p2_stdout);
             let sim_pid;
             match sim_process {
                 Ok(pid) => {
