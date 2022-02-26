@@ -12,6 +12,7 @@ pub mod py;
 pub mod request;
 pub mod response;
 pub mod simulator;
+pub mod utils;
 
 pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
