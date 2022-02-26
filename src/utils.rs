@@ -3,22 +3,26 @@ use std::{
     io::{BufWriter, Write},
 };
 
+use fs_extra::dir::CopyOptions;
+
 use crate::{error, request::GameRequest, response};
 
-// https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
 pub fn copy_dir_all(
     src: impl AsRef<std::path::Path>,
     dst: impl AsRef<std::path::Path>,
 ) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(src)? {
+    let opt = CopyOptions::new();
+    for entry in std::fs::read_dir(src).unwrap() {
         let entry = entry?;
         let ty = entry.file_type()?;
         if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            fs_extra::dir::copy(entry.path(), dst.as_ref(), &opt)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e)))?;
         } else {
             std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
         }
     }
+
     Ok(())
 }
 
