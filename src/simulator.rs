@@ -13,6 +13,7 @@ impl Simulator {
                 "docker",
                 "run",
                 "--memory=100m",
+                "--memory-swap=100m",
                 "--cpus=1",
                 "--rm",
                 "-i",
