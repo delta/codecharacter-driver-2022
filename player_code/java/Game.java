@@ -33,12 +33,12 @@ public class Game {
         return _alreadySpawnedPositions.contains(pos);
     }
 
-    public void setTarget(int attacker_id, int defender_id) {
-        _playerSetTargets.put(attacker_id, defender_id);
+    public void setTarget(int attackerId, int defenderId) {
+        _playerSetTargets.put(attackerId, defenderId);
     }
 
     public void setTarget(Attacker attacker, Defender defender) {
-        setTarget(attacker.get_id(), defender.get_id());
+        setTarget(attacker.getId(), defender.getId());
     }
 
     public void log(String s) {

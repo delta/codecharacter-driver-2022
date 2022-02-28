@@ -11,19 +11,19 @@ public class Actor {
         _position = pos;
     }
 
-    public int get_id() {
+    public int getId() {
         return _id;
     }
 
-    public int get_hp() {
+    public int getHp() {
         return _hp;
     }
 
-    public int get_type() {
+    public int getType() {
         return _type;
     }
 
-    public Position get_position() {
+    public Position getPosition() {
         return _position;
     }
 }
