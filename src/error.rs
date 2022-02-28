@@ -4,4 +4,5 @@ pub enum SimulatorError {
     RuntimeError(String),
     UnidentifiedError(String),
     FifoCreationError(String),
+    TimeOutError(String),
 }

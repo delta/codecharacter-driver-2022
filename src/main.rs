@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use cc_driver::{
-    cpp, create_error_response, create_executing_response, 
+    cpp, create_error_response, create_executing_response,
+    error::SimulatorError,
     fifo::Fifo,
     game_dir::GameDir,
     java,
     mq::{consumer, Publisher},
     py,
     request::{GameRequest, Language},
-    response::{ GameStatus},
+    response::GameStatus,
     simulator,
 };
 use log::{error, info, LevelFilter};
@@ -109,15 +110,16 @@ fn handler(game_request: GameRequest) -> GameStatus {
                 }
             };
 
-            let player_process_out = cc_driver::handle_process(player_pid);
+            let player_process_out =
+                cc_driver::handle_process(player_pid, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = player_process_out {
-                // error in publish means we crash
                 error!("Error from player.");
                 return create_error_response(&game_request, err);
             }
             let player_process_out = player_process_out.unwrap();
 
-            let sim_process_out = cc_driver::handle_process(sim_pid);
+            let sim_process_out =
+                cc_driver::handle_process(sim_pid, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = sim_process_out {
                 error!("Error from simulator.");
                 return create_error_response(&game_request, err);
@@ -141,6 +143,7 @@ fn worker_fn(msg_receiver: crossbeam_channel::Receiver<GameRequest>, publisher: 
     loop {
         match msg_receiver.recv() {
             Ok(req) => {
+                // publishing error means we can crash, something is wrong
                 publisher.publish(create_executing_response(&req)).unwrap();
                 let response = handler(req);
                 publisher.publish(response).unwrap();

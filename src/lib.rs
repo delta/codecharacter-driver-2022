@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Read, process::Child};
+use std::{collections::HashMap, io::Read, os::unix::prelude::ExitStatusExt, process::Child};
 
 use error::SimulatorError;
 use log::error;
@@ -17,8 +17,12 @@ pub mod utils;
 
 // maximum size for log will be around 2 MBs, everything after that is ignored
 const MAXLOGSIZE: usize = 2000000;
+const SIGKILL: i32 = 9;
 
-pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
+pub fn handle_process(
+    proc: Child,
+    make_err: fn(String) -> SimulatorError,
+) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
         Ok(out) => {
             let mut truncated_logs = out.stderr.take(MAXLOGSIZE as u64);
@@ -32,15 +36,21 @@ pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
                     Ok(_) => Ok(logs),
                 }
             } else {
+                if let Some(sig) = out.status.signal() {
+                    if sig == SIGKILL {
+                        return Err(SimulatorError::TimeOutError("Process took longer than the specified time to execute, so it was killed".to_string()));
+                    }
+                }
+
                 match logs_extraction_result {
                     Err(e) => Err(SimulatorError::UnidentifiedError(
                         format!(
-                            "Runtime Error followed by Error during log extraction: {}",
+                            "Program exited with non zero exit code followed by error during log extraction: {}",
                             e
                         )
                         .to_owned(),
                     )),
-                    Ok(_) => Err(SimulatorError::RuntimeError(format!(
+                    Ok(_) => Err(make_err(format!(
                         "Program exited with non zero exit code: {} ",
                         logs
                     ))),
@@ -180,6 +190,7 @@ pub fn create_error_response(
         SimulatorError::UnidentifiedError(e) => {
             ("Unidentified Error. Contact the POCs!".to_owned(), e)
         }
+        SimulatorError::TimeOutError(e) => ("Timeout Error!".to_owned(), e),
     };
     response::GameStatus {
         game_id: game_request.game_id.clone(),

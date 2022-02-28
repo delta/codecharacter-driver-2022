@@ -3,7 +3,7 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use crate::error::SimulatorError;
+use crate::{error::SimulatorError, handle_process};
 
 pub struct Runner {
     current_dir: String,
@@ -15,6 +15,7 @@ impl Runner {
     pub fn run(&self, stdin: File, stdout: File) -> Result<Child, SimulatorError> {
         let compile = Command::new("timeout".to_owned())
             .args([
+                "--signal=KILL",
                 "5",
                 "docker",
                 "run",
@@ -38,22 +39,12 @@ impl Runner {
                     err
                 ))
             })?;
-        let compile_output = compile.wait_with_output().map_err(|err| {
-            SimulatorError::UnidentifiedError(format!(
-                "Waiting on compilation process failed: {}",
-                err
-            ))
-        })?;
-        if !compile_output.status.success() {
-            return Err(SimulatorError::CompilationError(
-                String::from_utf8(compile_output.stderr)
-                    .unwrap()
-                    .trim()
-                    .to_owned(),
-            ));
-        }
+
+        let _ = handle_process(compile, |x| SimulatorError::CompilationError(x))?;
+
         Command::new("timeout".to_owned())
             .args([
+                "--signal=KILL",
                 "10",
                 "docker",
                 "run",
