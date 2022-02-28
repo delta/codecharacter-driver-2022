@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{BufRead, Read},
-    os::unix::prelude::ExitStatusExt,
-    process::Child,
-};
+use std::{collections::HashMap, io::Read, os::unix::prelude::ExitStatusExt, process::Child};
 
 use error::SimulatorError;
 use log::error;
