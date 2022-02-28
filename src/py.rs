@@ -16,6 +16,7 @@ impl Runner {
     pub fn run(&self, stdin: File, stdout: File) -> Result<std::process::Child, SimulatorError> {
         Command::new("timeout".to_owned())
             .args([
+                "--signal=KILL",
                 "10",
                 "docker",
                 "run",

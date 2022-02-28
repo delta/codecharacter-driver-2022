@@ -28,8 +28,7 @@ pub fn consumer(
 
     let consumer = queue.consume(ConsumerOptions::default())?;
 
-    let response_publisher =
-        Arc::new(Publisher::new(url, response_producer_queue_name).unwrap());
+    let response_publisher = Arc::new(Publisher::new(url, response_producer_queue_name).unwrap());
 
     let (s, r) = crossbeam_channel::bounded(NUM_OF_THREADS);
 

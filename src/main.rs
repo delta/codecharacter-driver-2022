@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use cc_driver::{
-    cpp, error,
+    cpp, create_error_response, create_executing_response,
+    error::SimulatorError,
     fifo::Fifo,
     game_dir::GameDir,
     java,
@@ -29,7 +30,7 @@ fn handler(game_request: GameRequest) -> GameStatus {
     let game_dir_handle = GameDir::new(&game_request.game_id);
 
     if game_dir_handle.is_none() {
-        return error::handle_err(
+        return create_error_response(
             &game_request,
             cc_driver::error::SimulatorError::UnidentifiedError(
                 "Failed to create game directory".to_owned(),
@@ -94,33 +95,34 @@ fn handler(game_request: GameRequest) -> GameStatus {
                     player_pid = pid;
                 }
                 Err(err) => {
-                    return error::handle_err(&game_request, err);
+                    return create_error_response(&game_request, err);
                 }
             };
 
-            let sim_process = simulator::Simulator{}.run(p2_stdin, p2_stdout);
+            let sim_process = simulator::Simulator {}.run(p2_stdin, p2_stdout);
             let sim_pid;
             match sim_process {
                 Ok(pid) => {
                     sim_pid = pid;
                 }
                 Err(err) => {
-                    return error::handle_err(&game_request, err);
+                    return create_error_response(&game_request, err);
                 }
             };
 
-            let player_process_out = cc_driver::handle_process(player_pid);
+            let player_process_out =
+                cc_driver::handle_process(player_pid, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = player_process_out {
-                // error in publish means we crash
                 error!("Error from player.");
-                return error::handle_err(&game_request, err);
+                return create_error_response(&game_request, err);
             }
             let player_process_out = player_process_out.unwrap();
 
-            let sim_process_out = cc_driver::handle_process(sim_pid);
+            let sim_process_out =
+                cc_driver::handle_process(sim_pid, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = sim_process_out {
                 error!("Error from simulator.");
-                return error::handle_err(&game_request, err);
+                return create_error_response(&game_request, err);
             }
             let sim_process_out = sim_process_out.unwrap();
 
@@ -132,7 +134,7 @@ fn handler(game_request: GameRequest) -> GameStatus {
         }
 
         (Err(e), _) | (_, Err(e)) => {
-            return error::handle_err(&game_request, e);
+            return create_error_response(&game_request, e);
         }
     }
 }
@@ -140,8 +142,10 @@ fn handler(game_request: GameRequest) -> GameStatus {
 fn worker_fn(msg_receiver: crossbeam_channel::Receiver<GameRequest>, publisher: Arc<Publisher>) {
     loop {
         match msg_receiver.recv() {
-            Ok(x) => {
-                let response = handler(x);
+            Ok(req) => {
+                // publishing error means we can crash, something is wrong
+                publisher.publish(create_executing_response(&req)).unwrap();
+                let response = handler(req);
                 publisher.publish(response).unwrap();
             }
             Err(_) => {

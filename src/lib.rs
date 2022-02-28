@@ -1,6 +1,7 @@
-use std::{collections::HashMap, io::Read, process::Child};
+use std::{collections::HashMap, io::Read, os::unix::prelude::ExitStatusExt, process::Child};
 
 use error::SimulatorError;
+use log::error;
 use response::{GameResult, GameStatusEnum};
 pub mod cpp;
 pub mod error;
@@ -16,8 +17,12 @@ pub mod utils;
 
 // maximum size for log will be around 2 MBs, everything after that is ignored
 const MAXLOGSIZE: usize = 2000000;
+const SIGKILL: i32 = 9;
 
-pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
+pub fn handle_process(
+    proc: Child,
+    make_err: fn(String) -> SimulatorError,
+) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
         Ok(out) => {
             let mut truncated_logs = out.stderr.take(MAXLOGSIZE as u64);
@@ -31,15 +36,21 @@ pub fn handle_process(proc: Child) -> Result<String, SimulatorError> {
                     Ok(_) => Ok(logs),
                 }
             } else {
+                if let Some(sig) = out.status.signal() {
+                    if sig == SIGKILL {
+                        return Err(SimulatorError::TimeOutError("Process took longer than the specified time to execute, so it was killed".to_string()));
+                    }
+                }
+
                 match logs_extraction_result {
                     Err(e) => Err(SimulatorError::UnidentifiedError(
                         format!(
-                            "Runtime Error followed by Error during log extraction: {}",
+                            "Program exited with non zero exit code followed by error during log extraction: {}",
                             e
                         )
                         .to_owned(),
                     )),
-                    Ok(_) => Err(SimulatorError::RuntimeError(format!(
+                    Ok(_) => Err(make_err(format!(
                         "Program exited with non zero exit code: {} ",
                         logs
                     ))),
@@ -155,6 +166,43 @@ pub fn create_final_response(
             coins_used: (game_request.parameters.no_of_coins - coins_left) as u64,
             has_errors: false,
             log: final_logs,
+        }),
+    }
+}
+
+pub fn create_executing_response(game_request: &request::GameRequest) -> response::GameStatus {
+    response::GameStatus {
+        game_id: game_request.game_id.to_string(),
+        game_status: GameStatusEnum::EXECUTING,
+        game_result: None,
+    }
+}
+
+pub fn create_error_response(
+    game_request: &request::GameRequest,
+    err: SimulatorError,
+) -> response::GameStatus {
+    error!("Error in execution: {:?}", err);
+    let (err_type, error) = match err {
+        SimulatorError::RuntimeError(e) => ("Runtime Error!".to_owned(), e),
+        SimulatorError::CompilationError(e) => ("Compilation Error!".to_owned(), e),
+        SimulatorError::FifoCreationError(e) => ("Process Communication Error!".to_owned(), e),
+        SimulatorError::UnidentifiedError(e) => {
+            ("Unidentified Error. Contact the POCs!".to_owned(), e)
+        }
+        SimulatorError::TimeOutError(e) => ("Timeout Error!".to_owned(), e),
+    };
+    response::GameStatus {
+        game_id: game_request.game_id.clone(),
+        game_status: response::GameStatusEnum::EXECUTE_ERROR,
+        game_result: Some(response::GameResult {
+            destruction_percentage: 0.0,
+            coins_used: 0,
+            has_errors: true,
+            log: format!(
+                "ERROR TYPE: {}\n\nERROR LOG\n{}\nERROR TYPE : {}\n",
+                err_type, error, err_type
+            ),
         }),
     }
 }
