@@ -1,6 +1,6 @@
 EXE=run
 CXX=g++
-FLAGS=-std=c++20 -O2 -static
+FLAGS=-std=c++20 -O2 -static -fdiagnostics-color=always
 
 all: $(EXE)
 
@@ -14,7 +14,7 @@ main.o: main.cpp player_code.h
 	$(CXX) $(FLAGS) -c -o main.o main.cpp
 
 $(EXE): $(EXE).o player_code.o main.o
-	g++ -static -o $(EXE) $(EXE).o player_code.o main.o
+	g++ -fdiagnostics-color=always -static -o $(EXE) $(EXE).o player_code.o main.o
 
 clean_objects:
 	rm player_code.o $(EXE).o main.o
