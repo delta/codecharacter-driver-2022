@@ -5,7 +5,7 @@ use std::{
 
 use fs_extra::dir::CopyOptions;
 
-use crate::{error, request::GameRequest, response};
+use crate::{create_error_response, error, request::GameRequest, response};
 
 pub fn copy_dir_all(
     src: impl AsRef<std::path::Path>,
@@ -88,7 +88,7 @@ pub fn make_copy(
     game_request: &GameRequest,
 ) -> Option<response::GameStatus> {
     if let Err(e) = copy_dir_all(src_dir, dest_dir) {
-        return Some(error::handle_err(
+        return Some(create_error_response(
             game_request,
             error::SimulatorError::UnidentifiedError(format!(
                 "Failed to copy player code boilerplate: {}",
@@ -101,7 +101,7 @@ pub fn make_copy(
         file.write_all(game_request.source_code.as_bytes())
             .and_then(|_| file.sync_all())
     }) {
-        return Some(error::handle_err(
+        return Some(create_error_response(
             game_request,
             error::SimulatorError::UnidentifiedError(format!("Failed to copy player code: {}", e)),
         ));
