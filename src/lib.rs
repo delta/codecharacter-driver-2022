@@ -1,4 +1,9 @@
-use std::{collections::HashMap, io::Read, os::unix::prelude::ExitStatusExt, process::Child};
+use std::{
+    collections::HashMap,
+    io::{BufRead, Read},
+    os::unix::prelude::ExitStatusExt,
+    process::Child,
+};
 
 use error::SimulatorError;
 use log::error;
@@ -192,6 +197,14 @@ pub fn create_error_response(
         }
         SimulatorError::TimeOutError(e) => ("Timeout Error!".to_owned(), e),
     };
+
+    let error = error
+        .lines()
+        .into_iter()
+        .map(|x| format!("ERRORS, {}", x))
+        .collect::<Vec<String>>()
+        .join("\n");
+
     response::GameStatus {
         game_id: game_request.game_id.clone(),
         game_status: response::GameStatusEnum::EXECUTE_ERROR,
@@ -200,8 +213,8 @@ pub fn create_error_response(
             coins_used: 0,
             has_errors: true,
             log: format!(
-                "ERROR TYPE: {}\n\nERROR LOG\n{}\nERROR TYPE : {}\n",
-                err_type, error, err_type
+                "ERRORS, ERROR TYPE: {}ERRORS, ERROR LOG:\n{}\n",
+                err_type, error
             ),
         }),
     }
