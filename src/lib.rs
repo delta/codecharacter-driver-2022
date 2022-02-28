@@ -208,7 +208,7 @@ pub fn create_error_response(
             coins_used: 0,
             has_errors: true,
             log: format!(
-                "ERRORS, ERROR TYPE: {}ERRORS, ERROR LOG:\n{}\n",
+                "ERRORS, ERROR TYPE: {}\nERRORS, ERROR LOG:\n{}\n",
                 err_type, error
             ),
         }),
