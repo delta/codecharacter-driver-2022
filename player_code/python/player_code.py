@@ -68,6 +68,8 @@ class Game:
         return position in self.already_spawned_positions
 
     def set_target(self, attacker_id: int, defender_id: int):
+        assert (type(attacker_id)== int)
+        assert (type(defender_id)== int)
         self.player_set_targets[attacker_id] = defender_id
 
     def log(self, line: str):

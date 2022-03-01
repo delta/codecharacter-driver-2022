@@ -14,7 +14,7 @@ def output(state: State, game: Game):
         sys.stdout.write(f"{id} {position.x} {position.y}\n")
 
     sys.stdout.write(f"{len(game.player_set_targets)}\n")
-    for attacker_id, defender_id in game.player_set_targets:
+    for (attacker_id, defender_id) in game.player_set_targets.items():
         sys.stdout.write(f"{attacker_id} {defender_id}\n")
 
 
