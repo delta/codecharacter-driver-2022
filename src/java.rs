@@ -44,7 +44,7 @@ impl Runner {
                 ))
             })?;
 
-        let _ = handle_process(compile, |x| SimulatorError::CompilationError(x))?;
+        let _ = handle_process(compile, true, |x| SimulatorError::CompilationError(x))?;
 
         Command::new("timeout".to_owned())
             .args([
