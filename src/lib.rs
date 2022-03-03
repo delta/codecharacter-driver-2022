@@ -15,25 +15,33 @@ pub mod response;
 pub mod simulator;
 pub mod utils;
 
-// maximum size for log will be around 2 MBs, everything after that is ignored
-const MAXLOGSIZE: usize = 2000000;
+// maximum size for log will be around 200KBs, everything after that is ignored
+const MAXLOGSIZE: usize = 200000;
 const SIGKILL: i32 = 9;
 
 pub fn handle_process(
     proc: Child,
+    is_player_process: bool,
     make_err: fn(String) -> SimulatorError,
 ) -> Result<String, SimulatorError> {
     match proc.wait_with_output() {
         Ok(out) => {
-            let mut truncated_logs = out.stderr.take(MAXLOGSIZE as u64);
-            let mut logs = String::new();
-            let logs_extraction_result = truncated_logs.read_to_string(&mut logs);
+            let logs_extraction_result: Result<String, std::io::Error> = if is_player_process {
+                let mut logs = String::new();
+                out.stderr
+                    .take(MAXLOGSIZE as u64)
+                    .read_to_string(&mut logs)
+                    .map(|_| logs)
+            } else {
+                String::from_utf8(out.stderr)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e)))
+            };
             if out.status.success() {
                 match logs_extraction_result {
                     Err(e) => Err(SimulatorError::UnidentifiedError(
                         format!("Error during log extraction: {}", e).to_owned(),
                     )),
-                    Ok(_) => Ok(logs),
+                    Ok(logs) => Ok(logs),
                 }
             } else {
                 if let Some(sig) = out.status.signal() {
@@ -50,7 +58,7 @@ pub fn handle_process(
                         )
                         .to_owned(),
                     )),
-                    Ok(_) => Err(make_err(format!(
+                    Ok(logs) => Err(make_err(format!(
                         "Program exited with non zero exit code: {} ",
                         logs
                     ))),

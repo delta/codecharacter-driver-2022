@@ -111,7 +111,7 @@ fn handler(game_request: GameRequest) -> GameStatus {
             };
 
             let player_process_out =
-                cc_driver::handle_process(player_pid, |x| SimulatorError::RuntimeError(x));
+                cc_driver::handle_process(player_pid, true, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = player_process_out {
                 error!("Error from player.");
                 return create_error_response(&game_request, err);
@@ -119,7 +119,7 @@ fn handler(game_request: GameRequest) -> GameStatus {
             let player_process_out = player_process_out.unwrap();
 
             let sim_process_out =
-                cc_driver::handle_process(sim_pid, |x| SimulatorError::RuntimeError(x));
+                cc_driver::handle_process(sim_pid, false, |x| SimulatorError::RuntimeError(x));
             if let Err(err) = sim_process_out {
                 error!("Error from simulator.");
                 return create_error_response(&game_request, err);
