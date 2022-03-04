@@ -18,6 +18,10 @@ pub mod utils;
 // maximum size for log will be around 200KBs, everything after that is ignored
 const MAXLOGSIZE: usize = 200000;
 const SIGKILL: i32 = 9;
+const COMPILATION_TIME_LIMIT: &'static str = "5";
+const RUNTIME_TIME_LIMIT: &'static str = "10";
+const COMPILATION_MEMORY_LIMIT: &'static str = "300m";
+const RUNTIME_MEMORY_LIMIT: &'static str = "100m";
 
 pub fn handle_process(
     proc: Child,
