@@ -3,7 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::error::SimulatorError;
+use crate::{error::SimulatorError, RUNTIME_MEMORY_LIMIT, RUNTIME_TIME_LIMIT};
 
 pub struct Runner {
     current_dir: String,
@@ -17,11 +17,11 @@ impl Runner {
         Command::new("timeout".to_owned())
             .args([
                 "--signal=KILL",
-                "10",
+                RUNTIME_TIME_LIMIT,
                 "docker",
                 "run",
-                "--memory=100m",
-                "--memory-swap=100m",
+                &format!("--memory={}", RUNTIME_MEMORY_LIMIT),
+                &format!("--memory-swap={}", RUNTIME_MEMORY_LIMIT),
                 "--cpus=1",
                 "--rm",
                 "-i",
