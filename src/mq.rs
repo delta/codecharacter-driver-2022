@@ -6,7 +6,7 @@ use amiquip::{
     Result,
 };
 
-const NUM_OF_THREADS: usize = 4;
+const NUM_OF_THREADS: usize = 2;
 
 pub fn consumer(
     url: String,
