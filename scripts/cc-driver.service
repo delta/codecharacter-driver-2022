@@ -1,0 +1,12 @@
+[Unit]
+Description=Driver of CodeCharacter 2022
+Requires=docker.service
+
+[Service]
+ExecStart=/home/cc22/codecharacter-driver-2022/codecharacter-driver-2022
+WorkingDirectory=/home/cc22/codecharacter-driver-2022
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target

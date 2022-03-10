@@ -1,0 +1,13 @@
+[Unit]
+Description=Docker Killer
+Requires=docker.service
+
+[Service]
+ExecStart=python3 killer.py
+WorkingDirectory=/home/cc22
+Restart=always
+User=cc22
+
+
+[Install]
+WantedBy=multi-user.target
